@@ -207,22 +207,20 @@ public struct ChatKitView: View {
                 .padding(.vertical, 10)
                 .modifier(GlassModifier(cornerRadius: 20))
 
-                if canSend {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .modifier(GlassButtonModifier(
-                            color: accentColor,
-                            isActive: true,
-                            interactive: false
-                        ))
-                        .contentShape(Circle())
-                        .onTapGesture {
-                            sendMessage()
-                        }
-                        .transition(.scale(scale: 0.5).combined(with: .opacity))
-                }
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .modifier(GlassButtonModifier(
+                        color: accentColor,
+                        isActive: canSend,
+                        interactive: false
+                    ))
+                    .contentShape(Circle())
+                    .opacity(canSend ? 1 : 0.5)
+                    .onTapGesture {
+                        if canSend { sendMessage() }
+                    }
             }
         }
         .animation(.spring(duration: 0.3), value: selectedImage != nil)
