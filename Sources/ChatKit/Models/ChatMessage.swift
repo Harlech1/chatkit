@@ -2,14 +2,14 @@ import Foundation
 import UIKit
 
 public struct ChatMessage: Identifiable, Equatable, Sendable {
-    public let id: UUID
+    public var id: String
     public var text: String
     public var isFromUser: Bool
     public var image: UIImage?
     public var timestamp: Date
 
     public init(
-        id: UUID = UUID(),
+        id: String = UUID().uuidString,
         text: String,
         isFromUser: Bool,
         image: UIImage? = nil,
