@@ -27,6 +27,14 @@ public struct ChatKitView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         ForEach(Array(store.messages.enumerated()), id: \.element.id) { index, message in
+                            if shouldShowTimestamp(at: index) {
+                                Text(timestampLabel(for: message.timestamp))
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
                             ChatBubble(message: message, accentColor: accentColor)
                                 .padding(.top, spacing(for: index))
                                 .id(message.id)
@@ -150,6 +158,29 @@ public struct ChatKitView: View {
         let current = store.messages[index]
         let previous = store.messages[index - 1]
         return current.isFromUser == previous.isFromUser ? 2 : 8
+    }
+
+    private func shouldShowTimestamp(at index: Int) -> Bool {
+        guard index > 0 else { return true }
+        let current = store.messages[index].timestamp
+        let previous = store.messages[index - 1].timestamp
+        return current.timeIntervalSince(previous) > 5 * 60
+    }
+
+    private func timestampLabel(for date: Date) -> String {
+        let calendar = Calendar.current
+        let time = date.formatted(date: .omitted, time: .shortened)
+        if calendar.isDateInToday(date) {
+            return time
+        }
+        if calendar.isDateInYesterday(date) {
+            return "Yesterday \(time)"
+        }
+        if let days = calendar.dateComponents([.day], from: date, to: .now).day, days < 7 {
+            let weekday = date.formatted(.dateTime.weekday(.wide))
+            return "\(weekday) \(time)"
+        }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func hideKeyboard() {
