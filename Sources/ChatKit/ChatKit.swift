@@ -1,11 +1,18 @@
 import Foundation
+import os
 
 public enum ChatKit {
-    private(set) static var apiKey: String?
-    private(set) static var baseURL: URL?
+    private struct Config: Sendable {
+        var apiKey: String?
+        var baseURL: URL?
+    }
+
+    private static let storage = OSAllocatedUnfairLock(initialState: Config())
+
+    static var apiKey: String? { storage.withLock { $0.apiKey } }
+    static var baseURL: URL? { storage.withLock { $0.baseURL } }
 
     public static func configure(apiKey: String, baseURL: URL) {
-        Self.apiKey = apiKey
-        Self.baseURL = baseURL
+        storage.withLock { $0 = Config(apiKey: apiKey, baseURL: baseURL) }
     }
 }
