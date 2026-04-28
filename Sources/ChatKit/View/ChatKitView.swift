@@ -189,7 +189,7 @@ public struct ChatKitView: View {
                     Button {
                         showPhotoPicker = true
                     } label: {
-                        Image(systemName: "photo")
+                        Image(systemName: "plus")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundStyle(.secondary)
                             .frame(width: 24)
