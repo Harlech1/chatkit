@@ -12,7 +12,10 @@ public enum ChatKit {
     static var apiKey: String? { storage.withLock { $0.apiKey } }
     static var baseURL: URL? { storage.withLock { $0.baseURL } }
 
-    public static func configure(apiKey: String, baseURL: URL) {
+    public static func configure(
+        apiKey: String,
+        baseURL: URL = URL(string: "https://trychatkit.com")!
+    ) {
         storage.withLock { $0 = Config(apiKey: apiKey, baseURL: baseURL) }
     }
 }
