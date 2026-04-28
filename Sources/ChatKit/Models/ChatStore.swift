@@ -2,15 +2,19 @@ import Foundation
 import Observation
 import UIKit
 
+private final class TaskBox: @unchecked Sendable {
+    var task: Task<Void, Never>?
+}
+
 @MainActor
 @Observable
 public final class ChatStore {
     public var messages: [ChatMessage] = []
     public var isProcessing: Bool = false
 
-    private let deviceId: String
-    private var lastFetched: Date?
-    private var pollTask: Task<Void, Never>?
+    @ObservationIgnored private let deviceId: String
+    @ObservationIgnored private var lastFetched: Date?
+    @ObservationIgnored private let pollBox = TaskBox()
 
     public init() {
         self.deviceId = DeviceID.get()
@@ -18,7 +22,7 @@ public final class ChatStore {
     }
 
     deinit {
-        pollTask?.cancel()
+        pollBox.task?.cancel()
     }
 
     public func send(text: String, image: UIImage? = nil) {
@@ -46,7 +50,7 @@ public final class ChatStore {
     }
 
     private func startPolling() {
-        pollTask = Task { [weak self] in
+        pollBox.task = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.pollOnce()
                 try? await Task.sleep(for: .seconds(5))
