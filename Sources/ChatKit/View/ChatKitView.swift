@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 
 public struct ChatKitView: View {
-    @State private var store = ChatStore()
+    @State private var store = ChatStore.shared
     @State private var messageText = ""
     @FocusState private var isTextFieldFocused: Bool
 
@@ -127,6 +127,8 @@ public struct ChatKitView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .background(Color.clear)
         .scrollContentBackground(.hidden)
+        .onAppear { store.setViewActive(true) }
+        .onDisappear { store.setViewActive(false) }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),

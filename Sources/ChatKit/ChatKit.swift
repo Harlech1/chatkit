@@ -18,4 +18,7 @@ public enum ChatKit {
     ) {
         storage.withLock { $0 = Config(apiKey: apiKey, baseURL: baseURL) }
     }
+
+    @MainActor
+    public static var store: ChatStore { ChatStore.shared }
 }

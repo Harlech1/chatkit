@@ -9,14 +9,28 @@ private final class TaskBox: @unchecked Sendable {
 @MainActor
 @Observable
 public final class ChatStore {
-    public var messages: [ChatMessage] = []
+    public static let shared = ChatStore()
+
+    public private(set) var messages: [ChatMessage] = []
+    public private(set) var unreadCount: Int = 0
     public var isProcessing: Bool = false
 
     @ObservationIgnored private let deviceId: String
     @ObservationIgnored private var lastFetched: Date?
     @ObservationIgnored private let pollBox = TaskBox()
+    @ObservationIgnored private var isViewActive = false
 
-    public init() {
+    @ObservationIgnored
+    private var lastReadAt: Date {
+        get {
+            (UserDefaults.standard.object(forKey: "ChatKit.lastReadAt") as? Date) ?? .distantPast
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "ChatKit.lastReadAt")
+        }
+    }
+
+    private init() {
         self.deviceId = DeviceID.get()
         startPolling()
     }
@@ -25,12 +39,14 @@ public final class ChatStore {
         pollBox.task?.cancel()
     }
 
+    // MARK: - Public API
+
     public func send(text: String, image: UIImage? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || image != nil else { return }
 
         let local = ChatMessage(text: trimmed, isFromUser: true, image: image)
-        messages.append(local)
+        appendMessage(local)
 
         guard !trimmed.isEmpty else { return }
 
@@ -45,6 +61,39 @@ public final class ChatStore {
                 lastFetched = max(lastFetched ?? .distantPast, wire.createdAt)
             } catch {
                 print("ChatKit send failed: \(error)")
+            }
+        }
+    }
+
+    public func markAllRead() {
+        lastReadAt = .now
+        recomputeUnread()
+    }
+
+    // MARK: - Internal
+
+    func setViewActive(_ active: Bool) {
+        isViewActive = active
+        if active {
+            markAllRead()
+        }
+    }
+
+    // MARK: - Private
+
+    private func appendMessage(_ msg: ChatMessage) {
+        messages.append(msg)
+        if isViewActive {
+            lastReadAt = .now
+        }
+        recomputeUnread()
+    }
+
+    private func recomputeUnread() {
+        let cutoff = lastReadAt
+        unreadCount = messages.reduce(into: 0) { count, msg in
+            if !msg.isFromUser && msg.timestamp > cutoff {
+                count += 1
             }
         }
     }
@@ -70,7 +119,7 @@ public final class ChatStore {
                     isFromUser: wire.sender == "user",
                     timestamp: wire.createdAt
                 )
-                messages.append(msg)
+                appendMessage(msg)
                 lastFetched = max(lastFetched ?? .distantPast, wire.createdAt)
             }
         } catch {
