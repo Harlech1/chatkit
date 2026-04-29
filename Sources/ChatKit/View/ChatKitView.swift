@@ -297,6 +297,27 @@ struct ChatBubble: View {
                         .onTapGesture {
                             showEnlargedImage = true
                         }
+                } else if let imageUrl = message.imageUrl {
+                    AsyncImage(url: imageUrl) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFill()
+                        case .failure:
+                            Image(systemName: "photo")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.secondary)
+                        case .empty:
+                            ProgressView()
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                    .frame(width: 200, height: 200)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .onTapGesture {
+                        showEnlargedImage = true
+                    }
                 }
 
                 if !message.text.isEmpty {
@@ -339,8 +360,8 @@ struct ChatBubble: View {
             }
         }
         .fullScreenCover(isPresented: $showEnlargedImage) {
-            if let image = message.image {
-                EnlargedImageView(image: image)
+            if message.image != nil || message.imageUrl != nil {
+                EnlargedImageView(image: message.image, imageURL: message.imageUrl)
             }
         }
     }
@@ -349,21 +370,39 @@ struct ChatBubble: View {
 // MARK: - Enlarged Image View
 
 struct EnlargedImageView: View {
-    let image: UIImage
+    let image: UIImage?
+    let imageURL: URL?
     @Environment(\.dismiss) private var dismiss
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
+    @ViewBuilder
+    private var content: some View {
+        if let image {
+            Image(uiImage: image).resizable().scaledToFit()
+        } else if let imageURL {
+            AsyncImage(url: imageURL) { phase in
+                if let img = phase.image {
+                    img.resizable().scaledToFit()
+                } else if phase.error != nil {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.white.opacity(0.7))
+                } else {
+                    ProgressView().tint(.white)
+                }
+            }
+        }
+    }
+
     var body: some View {
         GeometryReader { _ in
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
+                content
                     .scaleEffect(scale)
                     .offset(offset)
                     .gesture(

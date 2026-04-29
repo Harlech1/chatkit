@@ -48,15 +48,20 @@ public final class ChatStore {
         let local = ChatMessage(text: trimmed, isFromUser: true, image: image)
         appendMessage(local)
 
-        guard !trimmed.isEmpty else { return }
-
         let localId = local.id
         Task {
             do {
-                let wire = try await ChatClient.shared.send(text: trimmed, deviceId: deviceId)
+                let wire = try await ChatClient.shared.send(
+                    text: trimmed,
+                    image: image,
+                    deviceId: deviceId
+                )
                 if let idx = messages.firstIndex(where: { $0.id == localId }) {
                     messages[idx].id = wire.id
                     messages[idx].timestamp = wire.createdAt
+                    if let urlString = wire.imageUrl, let url = URL(string: urlString) {
+                        messages[idx].imageUrl = url
+                    }
                 }
                 lastFetched = max(lastFetched ?? .distantPast, wire.createdAt)
             } catch {
@@ -117,6 +122,7 @@ public final class ChatStore {
                     id: wire.id,
                     text: wire.body,
                     isFromUser: wire.sender == "user",
+                    imageUrl: wire.imageUrl.flatMap { URL(string: $0) },
                     timestamp: wire.createdAt
                 )
                 appendMessage(msg)

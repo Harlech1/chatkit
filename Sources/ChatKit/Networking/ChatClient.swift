@@ -1,8 +1,10 @@
 import Foundation
+import UIKit
 
 struct WireMessage: Decodable, Sendable {
     let id: String
     let body: String
+    let imageUrl: String?
     let sender: String
     let createdAt: Date
 }
@@ -12,6 +14,7 @@ enum ChatClientError: Error {
     case http(Int)
     case decode(Error)
     case transport(Error)
+    case imageEncodingFailed
 }
 
 actor ChatClient {
@@ -19,7 +22,7 @@ actor ChatClient {
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForRequest = 30
         return URLSession(configuration: config)
     }()
 
@@ -35,17 +38,25 @@ actor ChatClient {
         return e
     }()
 
-    func send(text: String, deviceId: String) async throws -> WireMessage {
+    func send(text: String, image: UIImage?, deviceId: String) async throws -> WireMessage {
         guard let baseURL = ChatKit.baseURL, let apiKey = ChatKit.apiKey else {
             throw ChatClientError.notConfigured
         }
-        var req = URLRequest(url: baseURL.appendingPathComponent("api/v1/messages"))
+
+        let url = baseURL.appendingPathComponent("api/v1/messages")
+        var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        struct Body: Encodable { let deviceId: String; let text: String }
-        req.httpBody = try encoder.encode(Body(deviceId: deviceId, text: text))
+        if let image {
+            let (body, boundary) = try buildMultipart(text: text, image: image, deviceId: deviceId)
+            req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+            req.httpBody = body
+        } else {
+            struct Body: Encodable { let deviceId: String; let text: String }
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try encoder.encode(Body(deviceId: deviceId, text: text))
+        }
 
         return try await perform(req)
     }
@@ -72,6 +83,54 @@ actor ChatClient {
 
         return try await perform(req)
     }
+
+    // MARK: - Multipart
+
+    private func buildMultipart(text: String, image: UIImage, deviceId: String) throws -> (Data, String) {
+        guard let imageData = compressedJPEG(from: image) else {
+            throw ChatClientError.imageEncodingFailed
+        }
+
+        let boundary = "ChatKit-\(UUID().uuidString)"
+        var body = Data()
+
+        func append(_ string: String) {
+            if let data = string.data(using: .utf8) {
+                body.append(data)
+            }
+        }
+
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"deviceId\"\r\n\r\n")
+        append("\(deviceId)\r\n")
+
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"text\"\r\n\r\n")
+        append("\(text)\r\n")
+
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"image\"; filename=\"image.jpg\"\r\n")
+        append("Content-Type: image/jpeg\r\n\r\n")
+        body.append(imageData)
+        append("\r\n")
+
+        append("--\(boundary)--\r\n")
+
+        return (body, boundary)
+    }
+
+    private func compressedJPEG(from image: UIImage, maxBytes: Int = 8 * 1024 * 1024) -> Data? {
+        var quality: CGFloat = 0.85
+        while quality >= 0.2 {
+            if let data = image.jpegData(compressionQuality: quality), data.count <= maxBytes {
+                return data
+            }
+            quality -= 0.15
+        }
+        return image.jpegData(compressionQuality: 0.2)
+    }
+
+    // MARK: - Transport
 
     private func perform<T: Decodable>(_ req: URLRequest) async throws -> T {
         let data: Data

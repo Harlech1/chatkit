@@ -6,6 +6,7 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var text: String
     public var isFromUser: Bool
     public var image: UIImage?
+    public var imageUrl: URL?
     public var timestamp: Date
 
     public init(
@@ -13,12 +14,14 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         text: String,
         isFromUser: Bool,
         image: UIImage? = nil,
+        imageUrl: URL? = nil,
         timestamp: Date = .now
     ) {
         self.id = id
         self.text = text
         self.isFromUser = isFromUser
         self.image = image
+        self.imageUrl = imageUrl
         self.timestamp = timestamp
     }
 
